@@ -333,7 +333,7 @@ public class BDD implements AutoCloseable{
 	 *
 	 */
 	private void removeLinks() throws IOException {
-		if(LINKS_REFERENCE_POSITION > 16)
+		if(LINKS_REFERENCE_POSITION <= 16)
 			removeObject(LINKS_REFERENCE_POSITION);
 	}
 
@@ -374,7 +374,7 @@ public class BDD implements AutoCloseable{
 	 *
 	 */
 	private void removeFreeSpaceTab() throws IOException {
-		if(SPACE_TAB_REFERENCE_POSITION > 16)
+		if(SPACE_TAB_REFERENCE_POSITION <= 16)
 			removeObject(SPACE_TAB_REFERENCE_POSITION);
 	}
 
