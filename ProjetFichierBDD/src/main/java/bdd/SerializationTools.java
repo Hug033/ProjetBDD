@@ -17,8 +17,11 @@ class SerializationTools {
 	 * @throws IOException si un problème d'entrée/sortie se produit
 	 */
 	static byte[] serialize(Serializable o) throws IOException {
-		//TODO complete
-		return null;
+		ByteArrayOutputStream bos = new ByteArrayOutputStream();
+		ObjectOutputStream oos = new ObjectOutputStream(bos);
+		oos.writeObject(o);
+		oos.flush();
+		return bos.toByteArray();
 	}
 
 	/**
