@@ -127,8 +127,9 @@ public class BDD implements AutoCloseable{
 	 * @throws IOException si un problème d'entrée/sortie se produit
 	 */
 	public void putObject(String objectName, Serializable object) throws IOException {
-		//TODO complete
+		putData(objectName, SerializationTools.serialize(object));
 	}
+
 	/**
 	 * Ajout d'un enregistrement linéairement dans le fichier.
 	 * Avant l'ajout du nouvel élément, la fonction va supprimer l'élément associé à la clé donnée en paramètre en appelant la fonction {@link #removeObject(String)}, et ceci dans le cas où il existerait déjà dans la base de donnée.
@@ -140,7 +141,11 @@ public class BDD implements AutoCloseable{
 	 * @throws IOException si un problème d'entrée/sortie se produit
 	 */
 	private void putData(String objectName, byte[] array) throws IOException {
-		//TODO complete
+		removeObject(objectName);
+		long pos = findPosition(array);
+		writeData(array, pos);
+		link.put(objectName, pos);
+		saveLinks();
 	}
 
 	/**
@@ -150,7 +155,8 @@ public class BDD implements AutoCloseable{
 	 * @throws IOException si un problème d'entrée/sortie se produit
 	 */
 	private void writeData(byte[] data, long pos) throws IOException {
-		//TODO complete
+		raf.write(data.length, pos, 1)
+		raf.write(data, pos + 1, data.length);
 	}
 
 	/**
@@ -164,7 +170,10 @@ public class BDD implements AutoCloseable{
 	 * @throws ClassNotFoundException si l'object n'a pas pu être désérialisé
 	 */
 	public Serializable getObject(String objectName) throws IOException, ClassNotFoundException {
-		//TODO complete
+		int pos = links.get(objectName);
+		if(pos != null){
+			return SerializationTools.deserialize(readData(Long.valueOf(pos)));
+		}
 		return null;
 	}
 
@@ -176,9 +185,9 @@ public class BDD implements AutoCloseable{
 	 * @throws IOException si un problème d'entrée/sortie se produit
 	 */
 	private byte[] readData(long pos) throws IOException {
-
-		//TODO complete
-		return null;
+		byte[] data;
+		raf.read(data, pos + 1, raf.readInt(pos));
+		return data;
 	}
 
 	/**
@@ -191,6 +200,7 @@ public class BDD implements AutoCloseable{
 		//TODO complete
 		return -1;
 	}
+
 	/**
 	 * Cette fonction trouve une position libre dans le fichier {@link #raf} où enregistrer des données binaires dont la taille est donnée en paramètre.
 	 * Pour se faire, elle appelle la fonction {@link #findPositionIntoFreeSpace(long)} pour vérifier qu'il n'y a pas une position qui pointe vers une zone contigüe libre au milieu du fichier et qui correspond au critère donné.
@@ -225,7 +235,11 @@ public class BDD implements AutoCloseable{
 	 * @throws IOException si un problème d'entrée/sortie se produit
 	 */
 	public boolean removeObject(String objectName) throws IOException {
-		//TODO complete
+		int pos = links.get(objectName);
+		if(pos != null) {
+			removeObject(pos);
+			return true;
+		}
 		return false;
 	}
 
@@ -242,7 +256,42 @@ public class BDD implements AutoCloseable{
 	 * @throws IOException si un problème d'entrée/sortie se produit
 	 */
 	private void removeObject(long pos) throws IOException {
-		//TODO complete
+		int lengthOfObject = raf.readInt(pos) + 1;
+		if(pos + lengthOfObject >= raf.length)
+		{
+			raf.setLength(raf.length - lengthOfObject);
+		} else {
+			FreeSpaceInterval freeSpace = new FreeSpaceInterval(pos, lengthOfObject);
+			freeSpaceIntervals.add(freeSpace);
+			FreeSpaceInterval left = freeSpaceIntervals.floor(freeSpace);
+			FreeSpaceInterval right = freeSpaceIntervals.ceiling(freeSpace);
+
+			if(left != null) {
+				if(left.getStartPosition() + left.getLength() + 1 == pos) {
+					if(right.getStartPosition() == lengthOfObject) {
+						freeSpaceIntervals.remove(left);
+						freeSpaceIntervals.remove(freeSpace);
+						freeSpaceIntervals.remove(right);
+						freeSpace = new FreeSpaceInterval(left.getStartPosition, right.getStartPosition() + right.getLength());
+						freeSpaceIntervals.add(freeSpace);
+						return;
+					}
+					freeSpaceIntervals.remove(left);
+					freeSpaceIntervals.remove(freeSpace);
+					freeSpace = new FreeSpaceInterval(left.getStartPosition, lengthOfObject);
+					freeSpaceIntervals.add(freeSpace);
+				}
+			}
+
+			if(right != null) {
+				if(right.getStartPosition() == lengthOfObject) {
+					freeSpaceIntervals.remove(right);
+					freeSpaceIntervals.remove(freeSpace);
+					freeSpace = new FreeSpaceInterval(pos, right.getStartPosition() + right.getLength());
+					freeSpaceIntervals.add(freeSpace);
+				}
+			}
+		}
 	}
 
 
@@ -259,7 +308,11 @@ public class BDD implements AutoCloseable{
 	 * @throws IOException si un problème d'entrée/sortie se produit
 	 */
 	private void saveLinks() throws IOException {
-		//TODO complete
+		removeLinks();
+		byte[] data = SerializationTools.serialize(links);
+		long pos = findPosition(data);
+		writeData(data, pos, data.length);
+		LINKS_REFERENCE_POSITION = pos;
 	}
 
 	/**
@@ -269,7 +322,7 @@ public class BDD implements AutoCloseable{
 	 * @throws ClassNotFoundException si la désérialisation se passe mal.
 	 */
 	private void readLinks() throws IOException, ClassNotFoundException {
-		//TODO complete
+		links = SerializationTools.deserialize(readData(LINKS_REFERENCE_POSITION));
 	}
 
 	/**
@@ -280,7 +333,8 @@ public class BDD implements AutoCloseable{
 	 *
 	 */
 	private void removeLinks() throws IOException {
-		//TODO complete
+		if(LINKS_REFERENCE_POSITION > 16)
+			removeObject(LINKS_REFERENCE_POSITION);
 	}
 
 	/**
@@ -296,7 +350,11 @@ public class BDD implements AutoCloseable{
 	 * @throws IOException si un problème d'entrée/sortie se produit
 	 */
 	private void saveFreeSpaceTab() throws IOException {
-		//TODO complete
+		removeFreeSpaceTab();
+		byte[] data = SerializationTools.serializeFreeSpaceIntervals(freeSpaceIntervals);
+		long pos = raf.length;
+		writeData(data, pos);
+		SPACE_TAB_REFERENCE_POSITION = pos;
 	}
 
 	/**
@@ -305,7 +363,7 @@ public class BDD implements AutoCloseable{
 	 * @throws IOException si un problème d'entrée/sortie se produit
 	 */
 	private void readFreeSpaceTab() throws IOException {
-		//TODO complete
+		freeSpaceIntervals = SerializationTools.deserializeFreeSpaceIntervals(readData(SPACE_TAB_REFERENCE_POSITION));
 	}
 
 	/**
@@ -316,7 +374,8 @@ public class BDD implements AutoCloseable{
 	 *
 	 */
 	private void removeFreeSpaceTab() throws IOException {
-		//TODO complete
+		if(SPACE_TAB_REFERENCE_POSITION > 16)
+			removeObject(SPACE_TAB_REFERENCE_POSITION);
 	}
 
 	@Override
@@ -324,7 +383,4 @@ public class BDD implements AutoCloseable{
 		saveMetaData();
 		raf.close();
 	}
-
-
-
 }
