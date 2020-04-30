@@ -41,8 +41,8 @@ import java.util.TreeSet;
  * @version 1.0
  */
 public class BDD implements AutoCloseable{
-	private static final long LINKS_REFERENCE_POSITION=0;
-	private static final long SPACE_TAB_REFERENCE_POSITION=8;
+	private static long LINKS_REFERENCE_POSITION=0;
+	private static long SPACE_TAB_REFERENCE_POSITION=8;
 
 	static class FreeSpaceInterval implements Comparable<FreeSpaceInterval>
 	{
@@ -127,7 +127,10 @@ public class BDD implements AutoCloseable{
 	 * @throws IOException si un problème d'entrée/sortie se produit
 	 */
 	public void putObject(String objectName, Serializable object) throws IOException {
-		putData(objectName, SerializationTools.serialize(object));
+		if(objectName != null && object != null)
+			putData(objectName, SerializationTools.serialize(object));
+		else
+			throw new NullPointerException();
 	}
 
 	/**
@@ -141,7 +144,7 @@ public class BDD implements AutoCloseable{
 	 * @throws IOException si un problème d'entrée/sortie se produit
 	 */
 	private void putData(String objectName, byte[] array) throws IOException {
-		removeObject(objectName);
+		//removeObject(objectName);
 		long pos = findPosition(array);
 		writeData(array, pos);
 		links.put(objectName, pos);
@@ -155,8 +158,11 @@ public class BDD implements AutoCloseable{
 	 * @throws IOException si un problème d'entrée/sortie se produit
 	 */
 	private void writeData(byte[] data, long pos) throws IOException {
-		//raf.writeInt(data.length, pos, 1);
-		//raf.write(data, pos + 1, data.length);
+		if (pos >= 0 && data != null) {
+			raf.seek(pos);
+			raf.writeInt(data.length);
+			raf.write(data);
+		}
 	}
 
 	/**
@@ -170,10 +176,15 @@ public class BDD implements AutoCloseable{
 	 * @throws ClassNotFoundException si l'object n'a pas pu être désérialisé
 	 */
 	public Serializable getObject(String objectName) throws IOException, ClassNotFoundException {
-		if((links.get(objectName)) != null){
-			return SerializationTools.deserialize(readData(Long.valueOf(links.get(objectName))));
-		}
-		return null;
+		if(objectName != null)
+		{
+			if((links.get(objectName)) != null && links.get(objectName) != -1) {
+				byte[] temp = readData(links.get(objectName));
+				return SerializationTools.deserialize(temp);
+			}
+			return null;
+		} else
+			throw new NullPointerException();
 	}
 
 	/**
@@ -184,10 +195,11 @@ public class BDD implements AutoCloseable{
 	 * @throws IOException si un problème d'entrée/sortie se produit
 	 */
 	private byte[] readData(long pos) throws IOException {
-		raf.seek(pos);
-		byte[] data = new byte[raf.readInt()];
-		raf.read(data,(int)pos + 1, raf.readInt());
-		return data;
+		this.raf.seek(pos);
+		int readInt = this.raf.readInt();
+		byte [] res = new byte[readInt];
+		this.raf.read(res);
+		return res;
 	}
 
 	/**
@@ -197,8 +209,7 @@ public class BDD implements AutoCloseable{
 	 * @throws IOException si un problème d'entrée/sortie se produit
 	 */
 	private long findPosition(byte[] array) throws IOException {
-		//TODO complete
-		return -1;
+		return findPosition(array.length);
 	}
 
 	/**
@@ -210,10 +221,11 @@ public class BDD implements AutoCloseable{
 	 * @throws IOException si un problème d'entrée/sortie se produit
 	 */
 	private long findPosition(long desiredLength) throws IOException {
-		if(findPositionIntoFreeSpace(desiredLength) == null){
-			this.raf.length();
+		Long pos = findPositionIntoFreeSpace(desiredLength);
+		if(pos == null) {
+			pos = this.raf.length();
 		}
-		return findPositionIntoFreeSpace(desiredLength);
+		return pos;
 	}
 
 	/**
@@ -225,7 +237,11 @@ public class BDD implements AutoCloseable{
 	 */
 	private Long findPositionIntoFreeSpace(long desiredLength)
 	{
-		//TODO complete
+		for(FreeSpaceInterval spaceInterval : freeSpaceIntervals)
+		{
+			if(spaceInterval.getLength() >= desiredLength)
+				return  spaceInterval.getStartPosition();
+		}
 		return null;
 	}
 
@@ -237,11 +253,22 @@ public class BDD implements AutoCloseable{
 	 * @throws IOException si un problème d'entrée/sortie se produit
 	 */
 	public boolean removeObject(String objectName) throws IOException {
-		if(links.get(objectName) != null) {
-			removeObject(links.get(objectName));
-			return true;
-		}
-		return false;
+		if(objectName != null) {
+			try {
+				long pos = links.get(objectName);
+				if (pos != -1) {
+					links.remove(objectName);
+					saveLinks();
+					removeObject(pos);
+					return true;
+				} else
+					return false;
+			} catch (Exception e) {
+				return false;
+			}
+
+		} else
+			throw new NullPointerException();
 	}
 
 	/**
@@ -257,40 +284,41 @@ public class BDD implements AutoCloseable{
 	 * @throws IOException si un problème d'entrée/sortie se produit
 	 */
 	private void removeObject(long pos) throws IOException {
-		raf.seek(pos);
-		int lengthOfObject = raf.readInt() + 1;
-		if(pos + lengthOfObject >= raf.length())
-		{
-			raf.setLength(raf.length() - lengthOfObject);
-		} else {
-			FreeSpaceInterval freeSpace = new FreeSpaceInterval(pos, lengthOfObject);
-			freeSpaceIntervals.add(freeSpace);
-			FreeSpaceInterval left = freeSpaceIntervals.floor(freeSpace);
-			FreeSpaceInterval right = freeSpaceIntervals.ceiling(freeSpace);
+		if(pos >= 0) {
+			raf.seek(pos);
+			int lengthOfObject = raf.readInt() + 1;
+			if (pos + lengthOfObject >= raf.length()) {
+				raf.setLength(raf.length() - lengthOfObject);
+			} else {
+				FreeSpaceInterval freeSpace = new FreeSpaceInterval(pos, lengthOfObject);
+				freeSpaceIntervals.add(freeSpace);
+				FreeSpaceInterval left = freeSpaceIntervals.floor(freeSpace);
+				FreeSpaceInterval right = freeSpaceIntervals.ceiling(freeSpace);
 
-			if(left != null) {
-				if(left.getStartPosition() + left.getLength() + 1 == pos) {
-					if(right.getStartPosition() == lengthOfObject) {
+				if (left != null) {
+					if (left.getStartPosition() + left.getLength() + 1 == pos) {
+						if (right.getStartPosition() == lengthOfObject) {
+							freeSpaceIntervals.remove(left);
+							freeSpaceIntervals.remove(freeSpace);
+							freeSpaceIntervals.remove(right);
+							freeSpace = new FreeSpaceInterval(left.getStartPosition(), right.getStartPosition() + right.getLength());
+							freeSpaceIntervals.add(freeSpace);
+							return;
+						}
 						freeSpaceIntervals.remove(left);
 						freeSpaceIntervals.remove(freeSpace);
-						freeSpaceIntervals.remove(right);
-						freeSpace = new FreeSpaceInterval(left.getStartPosition(), right.getStartPosition() + right.getLength());
+						freeSpace = new FreeSpaceInterval(left.getStartPosition(), lengthOfObject);
 						freeSpaceIntervals.add(freeSpace);
-						return;
 					}
-					freeSpaceIntervals.remove(left);
-					freeSpaceIntervals.remove(freeSpace);
-					freeSpace = new FreeSpaceInterval(left.getStartPosition(), lengthOfObject);
-					freeSpaceIntervals.add(freeSpace);
 				}
-			}
 
-			if(right != null) {
-				if(right.getStartPosition() == lengthOfObject) {
-					freeSpaceIntervals.remove(right);
-					freeSpaceIntervals.remove(freeSpace);
-					freeSpace = new FreeSpaceInterval(pos, right.getStartPosition() + right.getLength());
-					freeSpaceIntervals.add(freeSpace);
+				if (right != null) {
+					if (right.getStartPosition() == lengthOfObject) {
+						freeSpaceIntervals.remove(right);
+						freeSpaceIntervals.remove(freeSpace);
+						freeSpace = new FreeSpaceInterval(pos, right.getStartPosition() + right.getLength());
+						freeSpaceIntervals.add(freeSpace);
+					}
 				}
 			}
 		}
@@ -313,8 +341,8 @@ public class BDD implements AutoCloseable{
 		removeLinks();
 		byte[] data = SerializationTools.serialize(links);
 		long pos = findPosition(data);
-		//writeData(data, pos, data.length);
-		//LINKS_REFERENCE_POSITION = pos;
+		writeData(data, pos);
+		LINKS_REFERENCE_POSITION = pos;
 	}
 
 	/**
@@ -324,7 +352,8 @@ public class BDD implements AutoCloseable{
 	 * @throws ClassNotFoundException si la désérialisation se passe mal.
 	 */
 	private void readLinks() throws IOException, ClassNotFoundException {
-		//links = SerializationTools.deserialize(readData(LINKS_REFERENCE_POSITION));
+		if(readData(LINKS_REFERENCE_POSITION) != null)
+			links = (HashMap)SerializationTools.deserialize(readData(LINKS_REFERENCE_POSITION));
 	}
 
 	/**
@@ -335,7 +364,7 @@ public class BDD implements AutoCloseable{
 	 *
 	 */
 	private void removeLinks() throws IOException {
-		if(LINKS_REFERENCE_POSITION <= 16)
+		if(LINKS_REFERENCE_POSITION > 16)
 			removeObject(LINKS_REFERENCE_POSITION);
 	}
 
@@ -356,7 +385,7 @@ public class BDD implements AutoCloseable{
 		byte[] data = SerializationTools.serializeFreeSpaceIntervals(freeSpaceIntervals);
 		long pos = raf.length();
 		writeData(data, pos);
-		//SPACE_TAB_REFERENCE_POSITION = pos;
+		SPACE_TAB_REFERENCE_POSITION = pos;
 	}
 
 	/**
@@ -376,7 +405,7 @@ public class BDD implements AutoCloseable{
 	 *
 	 */
 	private void removeFreeSpaceTab() throws IOException {
-		if(SPACE_TAB_REFERENCE_POSITION <= 16)
+		if(SPACE_TAB_REFERENCE_POSITION > 16)
 			removeObject(SPACE_TAB_REFERENCE_POSITION);
 	}
 
