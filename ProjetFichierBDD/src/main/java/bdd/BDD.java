@@ -155,8 +155,8 @@ public class BDD implements AutoCloseable{
 	 * @throws IOException si un problème d'entrée/sortie se produit
 	 */
 	private void writeData(byte[] data, long pos) throws IOException {
-		raf.writeInt(data.length, pos, 1);
-		raf.write(data, pos + 1, data.length);
+		//raf.writeInt(data.length, pos, 1);
+		//raf.write(data, pos + 1, data.length);
 	}
 
 	/**
@@ -210,8 +210,10 @@ public class BDD implements AutoCloseable{
 	 * @throws IOException si un problème d'entrée/sortie se produit
 	 */
 	private long findPosition(long desiredLength) throws IOException {
-		//TODO complete
-		return -1;
+		if(findPositionIntoFreeSpace(desiredLength) == null){
+			this.raf.length();
+		}
+		return findPositionIntoFreeSpace(desiredLength);
 	}
 
 	/**
@@ -311,8 +313,8 @@ public class BDD implements AutoCloseable{
 		removeLinks();
 		byte[] data = SerializationTools.serialize(links);
 		long pos = findPosition(data);
-		writeData(data, pos, data.length);
-		LINKS_REFERENCE_POSITION = pos;
+		//writeData(data, pos, data.length);
+		//LINKS_REFERENCE_POSITION = pos;
 	}
 
 	/**
@@ -322,7 +324,7 @@ public class BDD implements AutoCloseable{
 	 * @throws ClassNotFoundException si la désérialisation se passe mal.
 	 */
 	private void readLinks() throws IOException, ClassNotFoundException {
-		links = SerializationTools.deserialize(readData(LINKS_REFERENCE_POSITION));
+		//links = SerializationTools.deserialize(readData(LINKS_REFERENCE_POSITION));
 	}
 
 	/**
@@ -354,7 +356,7 @@ public class BDD implements AutoCloseable{
 		byte[] data = SerializationTools.serializeFreeSpaceIntervals(freeSpaceIntervals);
 		long pos = raf.length();
 		writeData(data, pos);
-		SPACE_TAB_REFERENCE_POSITION = pos;
+		//SPACE_TAB_REFERENCE_POSITION = pos;
 	}
 
 	/**

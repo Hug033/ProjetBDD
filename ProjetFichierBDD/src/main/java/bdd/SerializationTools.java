@@ -17,11 +17,15 @@ class SerializationTools {
 	 * @throws IOException si un problème d'entrée/sortie se produit
 	 */
 	static byte[] serialize(Serializable o) throws IOException {
+		if(o != null) {
 		ByteArrayOutputStream bos = new ByteArrayOutputStream();
 		ObjectOutputStream oos = new ObjectOutputStream(bos);
 		oos.writeObject(o);
 		oos.flush();
 		return bos.toByteArray();
+		} else {
+			throw new NullPointerException();
+		}
 	}
 
 	/**
@@ -32,8 +36,12 @@ class SerializationTools {
 	 * @throws ClassNotFoundException si un problème lors de la déserialisation s'est produit
 	 */
 	static Serializable deserialize(byte[] data) throws IOException, ClassNotFoundException {
-		//TODO complete
-		return null;
+		if (data != null) {
+			ByteArrayInputStream ba = new ByteArrayInputStream(data);
+			ObjectInputStream obj = new ObjectInputStream(ba);
+			return (Serializable) obj.readObject();
+		} else
+			throw new NullPointerException();
 	}
 
 	/**
@@ -50,8 +58,19 @@ class SerializationTools {
 	 * @throws IOException si un problème d'entrée/sortie se produit
 	 */
 	static byte[] serializeFreeSpaceIntervals(TreeSet<BDD.FreeSpaceInterval> freeSpaceIntervals) throws IOException {
-		//TODO complete
-		return null;
+		if (freeSpaceIntervals != null) {
+			ByteArrayOutputStream ba = new ByteArrayOutputStream();
+			DataOutputStream dos = new DataOutputStream(ba);
+			byte[] result = new byte[0];
+			for(BDD.FreeSpaceInterval interval : freeSpaceIntervals){
+				dos.writeUTF(String.valueOf(Integer.toBinaryString((int) interval.getStartPosition())));
+				dos.writeUTF(String.valueOf(Integer.toBinaryString((int) interval.getLength())));
+				dos.flush();
+				result = ba.toByteArray();
+			}
+			return result;
+		} else
+			throw new NullPointerException();
 	}
 
 	/**
@@ -61,7 +80,11 @@ class SerializationTools {
 	 * @throws IOException si un problème d'entrée/sortie se produit
 	 */
 	static TreeSet<BDD.FreeSpaceInterval> deserializeFreeSpaceIntervals(byte[] data) throws IOException {
-		//TODO complete
-		return null;
+		if (data != null) {
+			ByteArrayInputStream ba = new ByteArrayInputStream(data);
+			DataInputStream dataInputStream = new DataInputStream(ba);
+			return null;
+		} else
+			throw new NullPointerException();
 	}
 }
