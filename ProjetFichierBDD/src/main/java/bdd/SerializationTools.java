@@ -63,14 +63,11 @@ class SerializationTools {
         if (freeSpaceIntervals != null) {
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
             DataOutputStream dos = new DataOutputStream(baos);
-            dos.flush();
-            for(BDD.FreeSpaceInterval interval : freeSpaceIntervals){
-                dos.writeLong(interval.getStartPosition());
-                dos.writeLong(interval.getLength());
+            for(BDD.FreeSpaceInterval spaceInterval : freeSpaceIntervals){
+                dos.writeLong(spaceInterval.getStartPosition());
+                dos.writeLong(spaceInterval.getLength());
                 dos.flush();
             }
-            dos.close();
-            baos.close();
             return baos.toByteArray();
         } else
             throw new NullPointerException();
@@ -86,10 +83,10 @@ class SerializationTools {
     static TreeSet<BDD.FreeSpaceInterval> deserializeFreeSpaceIntervals(byte[] data) throws IOException {
         if(data != null) {
             TreeSet<BDD.FreeSpaceInterval> freeSpaceInterval = new TreeSet<BDD.FreeSpaceInterval>();
-            for(int i = 0; i < data.length; i += 16){
-                ByteArrayInputStream tab = new ByteArrayInputStream(Arrays.copyOfRange(data, i, i+8));
+            for(int i = 0; i < data.length; i += 16) {
+                ByteArrayInputStream tab = new ByteArrayInputStream(Arrays.copyOfRange(data, i, i + 8));
                 DataInputStream obj = new DataInputStream(tab);
-                ByteArrayInputStream tab_2 = new ByteArrayInputStream(Arrays.copyOfRange(data, i+8, i+16));
+                ByteArrayInputStream tab_2 = new ByteArrayInputStream(Arrays.copyOfRange(data, i + 8, i + 16));
                 DataInputStream obj_2 = new DataInputStream(tab);
                 freeSpaceInterval.add(new BDD.FreeSpaceInterval((long)tab.read(), (long)tab_2.read()));
                 tab.close();
