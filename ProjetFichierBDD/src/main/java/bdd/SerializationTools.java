@@ -1,6 +1,7 @@
 package bdd;
 
 import java.io.*;
+import java.util.Arrays;
 import java.util.TreeSet;
 
 /**
@@ -62,14 +63,15 @@ class SerializationTools {
         if (freeSpaceIntervals != null) {
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
             DataOutputStream dos = new DataOutputStream(baos);
-            byte[] result = null;
+            dos.flush();
             for(BDD.FreeSpaceInterval interval : freeSpaceIntervals){
                 dos.writeLong(interval.getStartPosition());
                 dos.writeLong(interval.getLength());
                 dos.flush();
-                result = baos.toByteArray();
             }
-            return result;
+            dos.close();
+            baos.close();
+            return baos.toByteArray();
         } else
             throw new NullPointerException();
     }
@@ -83,13 +85,17 @@ class SerializationTools {
      */
     static TreeSet<BDD.FreeSpaceInterval> deserializeFreeSpaceIntervals(byte[] data) throws IOException {
         if(data != null) {
-            ByteArrayInputStream bis = new ByteArrayInputStream(data);
-            DataInputStream dis = new DataInputStream(bis);
-            Serializable o = (Serializable) dis.read(data);
-            if (dis != null) {
-                dis.close();
+            TreeSet<BDD.FreeSpaceInterval> freeSpaceInterval = new TreeSet<BDD.FreeSpaceInterval>();
+            for(int i = 0; i < data.length; i += 16){
+                ByteArrayInputStream tab = new ByteArrayInputStream(Arrays.copyOfRange(data, i, i+8));
+                DataInputStream obj = new DataInputStream(tab);
+                ByteArrayInputStream tab_2 = new ByteArrayInputStream(Arrays.copyOfRange(data, i+8, i+16));
+                DataInputStream obj_2 = new DataInputStream(tab);
+                freeSpaceInterval.add(new BDD.FreeSpaceInterval((long)tab.read(), (long)tab_2.read()));
+                tab.close();
+                obj.close();
             }
-            return (TreeSet<BDD.FreeSpaceInterval>) o;
+            return freeSpaceInterval;
         } else
             throw new NullPointerException();
     }

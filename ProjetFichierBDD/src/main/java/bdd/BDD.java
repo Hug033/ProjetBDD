@@ -41,8 +41,8 @@ import java.util.TreeSet;
  * @version 1.0
  */
 public class BDD implements AutoCloseable{
-	private static long LINKS_REFERENCE_POSITION=0;
-	private static long SPACE_TAB_REFERENCE_POSITION=8;
+	private static final long LINKS_REFERENCE_POSITION=0;
+	private static final long SPACE_TAB_REFERENCE_POSITION=8;
 
 	static class FreeSpaceInterval implements Comparable<FreeSpaceInterval>
 	{
@@ -342,7 +342,8 @@ public class BDD implements AutoCloseable{
 		byte[] data = SerializationTools.serialize(links);
 		long pos = findPosition(data);
 		writeData(data, pos);
-		LINKS_REFERENCE_POSITION = pos;
+		raf.seek(LINKS_REFERENCE_POSITION);
+		raf.writeLong(pos);
 	}
 
 	/**
@@ -352,8 +353,10 @@ public class BDD implements AutoCloseable{
 	 * @throws ClassNotFoundException si la désérialisation se passe mal.
 	 */
 	private void readLinks() throws IOException, ClassNotFoundException {
-		if(readData(LINKS_REFERENCE_POSITION) != null)
-			links = (HashMap)SerializationTools.deserialize(readData(LINKS_REFERENCE_POSITION));
+		if(readData(LINKS_REFERENCE_POSITION) != null) {
+			raf.seek(LINKS_REFERENCE_POSITION);
+			links = (HashMap<String, Long>) SerializationTools.deserialize(readData(raf.readLong()));
+		}
 	}
 
 	/**
@@ -385,8 +388,10 @@ public class BDD implements AutoCloseable{
 		byte[] data = SerializationTools.serializeFreeSpaceIntervals(freeSpaceIntervals);
 		long pos = raf.length();
 		writeData(data, pos);
-		SPACE_TAB_REFERENCE_POSITION = pos;
+		raf.seek(SPACE_TAB_REFERENCE_POSITION);
+		raf.writeLong(pos);
 	}
+
 
 	/**
 	 * Cette fonction lit la donnée à la position déterminée par {@link #SPACE_TAB_REFERENCE_POSITION}, grâce à la fonction {@link #readData(long)}.
@@ -394,7 +399,10 @@ public class BDD implements AutoCloseable{
 	 * @throws IOException si un problème d'entrée/sortie se produit
 	 */
 	private void readFreeSpaceTab() throws IOException {
-		freeSpaceIntervals = SerializationTools.deserializeFreeSpaceIntervals(readData(SPACE_TAB_REFERENCE_POSITION));
+		if(readData(SPACE_TAB_REFERENCE_POSITION) != null) {
+			raf.seek(SPACE_TAB_REFERENCE_POSITION);
+			freeSpaceIntervals = SerializationTools.deserializeFreeSpaceIntervals(readData(raf.readLong()));
+		}
 	}
 
 	/**

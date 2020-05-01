@@ -110,6 +110,7 @@ public class TestBDD {
 		{
 			closeAndOpen();
 		}
+		System.out.println(bdd.getLinks());
 		Person np=(Person)bdd.getObject(name);
 		Assert.assertEquals(np, p, "Add/get object does not work");
 		Assert.assertTrue(bdd.removeObject(name), "When the object is removed, the function must return true");
