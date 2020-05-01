@@ -111,7 +111,6 @@ public class BDD implements AutoCloseable{
 	 * @throws IOException si un problème d'entrée/sortie se produit
 	 */
 	private void saveMetaData() throws IOException {
-
 		saveLinks();
 		saveFreeSpaceTab();
 	}
@@ -179,9 +178,6 @@ public class BDD implements AutoCloseable{
 		if(objectName != null)
 		{
 			if((links.get(objectName)) != null && links.get(objectName) != -1) {
-				System.out.println(links.get(objectName));
-				System.out.println(links);
-
 				byte[] temp = readData(links.get(objectName));
 				return SerializationTools.deserialize(temp);
 			}
@@ -198,10 +194,9 @@ public class BDD implements AutoCloseable{
 	 * @throws IOException si un problème d'entrée/sortie se produit
 	 */
 	private byte[] readData(long pos) throws IOException {
-		this.raf.seek(pos);
-		int readInt = this.raf.readInt();
-		byte [] res = new byte[readInt];
-		this.raf.read(res);
+		raf.seek(pos);
+		byte [] res = new byte[raf.readInt()];
+		raf.read(res);
 		return res;
 	}
 
@@ -226,7 +221,7 @@ public class BDD implements AutoCloseable{
 	private long findPosition(long desiredLength) throws IOException {
 		Long pos = findPositionIntoFreeSpace(desiredLength);
 		if(pos == null) {
-			pos = this.raf.length();
+			pos = raf.length();
 		}
 		return pos;
 	}
@@ -241,10 +236,8 @@ public class BDD implements AutoCloseable{
 	private Long findPositionIntoFreeSpace(long desiredLength)
 	{
 		for(FreeSpaceInterval spaceInterval : freeSpaceIntervals)
-		{
 			if(spaceInterval.getLength() >= desiredLength)
 				return  spaceInterval.getStartPosition();
-		}
 		return null;
 	}
 
@@ -260,16 +253,15 @@ public class BDD implements AutoCloseable{
 			try {
 				long pos = links.get(objectName);
 				if (pos != -1) {
+					removeObject(pos);
 					links.remove(objectName);
 					saveLinks();
-					removeObject(pos);
 					return true;
 				} else
 					return false;
 			} catch (Exception e) {
 				return false;
 			}
-
 		} else
 			throw new NullPointerException();
 	}
@@ -289,44 +281,26 @@ public class BDD implements AutoCloseable{
 	private void removeObject(long pos) throws IOException {
 		if(pos >= 0) {
 			raf.seek(pos);
-			int lengthOfObject = raf.readInt() + 1;
-			if (pos + lengthOfObject >= raf.length()) {
+			int lengthOfObject = raf.readInt();
+			if (pos + 4 + lengthOfObject >= raf.length() - 1)
 				raf.setLength(raf.length() - lengthOfObject);
-			} else {
-				FreeSpaceInterval freeSpace = new FreeSpaceInterval(pos, lengthOfObject);
-				freeSpaceIntervals.add(freeSpace);
-				FreeSpaceInterval left = freeSpaceIntervals.floor(freeSpace);
-				FreeSpaceInterval right = freeSpaceIntervals.ceiling(freeSpace);
-
-				if (left != null) {
-					if (left.getStartPosition() + left.getLength() + 1 == pos) {
-						if (right.getStartPosition() == lengthOfObject) {
-							freeSpaceIntervals.remove(left);
-							freeSpaceIntervals.remove(freeSpace);
-							freeSpaceIntervals.remove(right);
-							freeSpace = new FreeSpaceInterval(left.getStartPosition(), right.getStartPosition() + right.getLength());
-							freeSpaceIntervals.add(freeSpace);
-							return;
-						}
-						freeSpaceIntervals.remove(left);
-						freeSpaceIntervals.remove(freeSpace);
-						freeSpace = new FreeSpaceInterval(left.getStartPosition(), lengthOfObject);
-						freeSpaceIntervals.add(freeSpace);
-					}
-				}
-
-				if (right != null) {
-					if (right.getStartPosition() == lengthOfObject) {
-						freeSpaceIntervals.remove(right);
-						freeSpaceIntervals.remove(freeSpace);
-						freeSpace = new FreeSpaceInterval(pos, right.getStartPosition() + right.getLength());
-						freeSpaceIntervals.add(freeSpace);
+			else {
+				FreeSpaceInterval left = null;
+				for (FreeSpaceInterval spaceInterval : freeSpaceIntervals) {
+					if (spaceInterval.getStartPosition() + spaceInterval.getLength() + 1 == pos) {
+						spaceInterval.length += lengthOfObject;
+						left = spaceInterval;
+					} else if (spaceInterval.getStartPosition() + 1 == pos + lengthOfObject && left != null) {
+						left.length += spaceInterval.getLength();
+						freeSpaceIntervals.remove(spaceInterval);
+					} else if(spaceInterval.getStartPosition() + 1 == pos + lengthOfObject) {
+						freeSpaceIntervals.add(new FreeSpaceInterval(pos, lengthOfObject + spaceInterval.getLength()));
+						freeSpaceIntervals.remove(spaceInterval);
 					}
 				}
 			}
 		}
 	}
-
 
 	/**
 	 * Cette fonction sauvegarde le tableau associatif {@link #links} dans le fichier de la BDD :
@@ -419,7 +393,7 @@ public class BDD implements AutoCloseable{
 	 */
 	private void removeFreeSpaceTab() throws IOException {
 		raf.seek(SPACE_TAB_REFERENCE_POSITION);
-		int pos = this.raf.readInt();
+		int pos = raf.readInt();
 		if(pos > 16)
 			removeObject(pos);
 	}
