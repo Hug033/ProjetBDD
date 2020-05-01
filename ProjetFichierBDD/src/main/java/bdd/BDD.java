@@ -144,10 +144,10 @@ public class BDD implements AutoCloseable{
 	 * @throws IOException si un problème d'entrée/sortie se produit
 	 */
 	private void putData(String objectName, byte[] array) throws IOException {
-		//removeObject(objectName);
+		removeObject(objectName);
 		long pos = findPosition(array);
-		writeData(array, pos);
 		links.put(objectName, pos);
+		writeData(array, pos);
 		saveLinks();
 	}
 
@@ -179,6 +179,9 @@ public class BDD implements AutoCloseable{
 		if(objectName != null)
 		{
 			if((links.get(objectName)) != null && links.get(objectName) != -1) {
+				System.out.println(links.get(objectName));
+				System.out.println(links);
+
 				byte[] temp = readData(links.get(objectName));
 				return SerializationTools.deserialize(temp);
 			}
@@ -367,8 +370,10 @@ public class BDD implements AutoCloseable{
 	 *
 	 */
 	private void removeLinks() throws IOException {
-		if(LINKS_REFERENCE_POSITION > 16)
-			removeObject(LINKS_REFERENCE_POSITION);
+		raf.seek(LINKS_REFERENCE_POSITION);
+		int pos = raf.readInt();
+		if(pos > 16)
+			removeObject(pos);
 	}
 
 	/**
@@ -413,8 +418,10 @@ public class BDD implements AutoCloseable{
 	 *
 	 */
 	private void removeFreeSpaceTab() throws IOException {
-		if(SPACE_TAB_REFERENCE_POSITION > 16)
-			removeObject(SPACE_TAB_REFERENCE_POSITION);
+		raf.seek(SPACE_TAB_REFERENCE_POSITION);
+		int pos = this.raf.readInt();
+		if(pos > 16)
+			removeObject(pos);
 	}
 
 	@Override

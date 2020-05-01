@@ -84,6 +84,7 @@ public class TestBDD {
 			}
 			for (Map.Entry<String, Person> e : persons.entrySet())
 			{
+				System.out.println(e.getKey());
 				Person p2=(Person)bdd.getObject(e.getKey());
 				Assert.assertNotNull(p2, "The person "+e.getKey()+" should be present into the database");
 				Assert.assertEquals(p2, e.getValue());
